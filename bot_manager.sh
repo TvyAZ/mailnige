@@ -49,13 +49,8 @@ check_environment() {
         exit 1
     fi
     
-    # Try to switch to botuser if running as root
-    if [ "$USER" = "root" ]; then
-        exec sudo -u botuser "$0" "$@"
-    elif [ "$USER" != "botuser" ]; then
-        print_error "This script should be run as botuser"
-        exit 1
-    fi
+    # Don't auto-switch to botuser for service management
+    # Keep running as current user (root/sudo) for systemctl commands
 }
 
 # Start bot service
@@ -70,7 +65,14 @@ start_bot() {
     
     print_status "Starting bot service..."
     
-    if sudo systemctl start "$SERVICE_NAME"; then
+    # Use systemctl with sudo only if not running as root
+    if [ "$EUID" -eq 0 ]; then
+        SYSTEMCTL_CMD="systemctl"
+    else
+        SYSTEMCTL_CMD="sudo systemctl"
+    fi
+    
+    if $SYSTEMCTL_CMD start "$SERVICE_NAME"; then
         sleep 3
         if systemctl is-active --quiet "$SERVICE_NAME"; then
             print_success "Bot started successfully"
@@ -97,7 +99,14 @@ stop_bot() {
     
     print_status "Stopping bot service..."
     
-    if sudo systemctl stop "$SERVICE_NAME"; then
+    # Use systemctl with sudo only if not running as root
+    if [ "$EUID" -eq 0 ]; then
+        SYSTEMCTL_CMD="systemctl"
+    else
+        SYSTEMCTL_CMD="sudo systemctl"
+    fi
+    
+    if $SYSTEMCTL_CMD stop "$SERVICE_NAME"; then
         sleep 2
         print_success "Bot stopped successfully"
     else
@@ -112,7 +121,14 @@ restart_bot() {
     
     print_status "Restarting bot service..."
     
-    if sudo systemctl restart "$SERVICE_NAME"; then
+    # Use systemctl with sudo only if not running as root
+    if [ "$EUID" -eq 0 ]; then
+        SYSTEMCTL_CMD="systemctl"
+    else
+        SYSTEMCTL_CMD="sudo systemctl"
+    fi
+    
+    if $SYSTEMCTL_CMD restart "$SERVICE_NAME"; then
         sleep 3
         if systemctl is-active --quiet "$SERVICE_NAME"; then
             print_success "Bot restarted successfully"
@@ -286,7 +302,11 @@ update_bot() {
     # Stop bot before update
     if systemctl is-active --quiet "$SERVICE_NAME"; then
         print_status "Stopping bot for update..."
-        sudo systemctl stop "$SERVICE_NAME"
+        if [ "$EUID" -eq 0 ]; then
+            systemctl stop "$SERVICE_NAME"
+        else
+            sudo systemctl stop "$SERVICE_NAME"
+        fi
     fi
     
     # Backup current version
@@ -308,7 +328,11 @@ update_bot() {
     
     if [ "$current_commit" = "$latest_commit" ]; then
         print_success "Already up to date"
-        sudo systemctl start "$SERVICE_NAME"
+        if [ "$EUID" -eq 0 ]; then
+            systemctl start "$SERVICE_NAME"
+        else
+            sudo systemctl start "$SERVICE_NAME"
+        fi
         return 0
     fi
     
@@ -334,7 +358,11 @@ update_bot() {
     
     # Restart bot
     print_status "Starting updated bot..."
-    sudo systemctl start "$SERVICE_NAME"
+    if [ "$EUID" -eq 0 ]; then
+        systemctl start "$SERVICE_NAME"
+    else
+        sudo systemctl start "$SERVICE_NAME"
+    fi
     
     sleep 3
     if systemctl is-active --quiet "$SERVICE_NAME"; then

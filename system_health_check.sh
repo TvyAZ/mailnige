@@ -319,7 +319,13 @@ check_service() {
             print_warn "Service is not enabled for auto-start"
             if [ "$FIX_ISSUES" = true ]; then
                 print_fix "Enabling service for auto-start..."
-                sudo systemctl enable "$SERVICE_NAME"
+                # Check if running as root/sudo user
+                if [ "$EUID" -eq 0 ] || groups | grep -q sudo; then
+                    sudo systemctl enable "$SERVICE_NAME"
+                else
+                    print_info "Please run as root/sudo user to enable service:"
+                    print_info "sudo systemctl enable $SERVICE_NAME"
+                fi
             fi
         fi
     else
@@ -346,7 +352,14 @@ check_service() {
         
         if [ "$FIX_ISSUES" = true ]; then
             print_fix "Starting service..."
-            sudo systemctl start "$SERVICE_NAME"
+            # Check if running as root/sudo user
+            if [ "$EUID" -eq 0 ] || groups | grep -q sudo; then
+                sudo systemctl start "$SERVICE_NAME"
+            else
+                print_info "Please run as root/sudo user to start service:"
+                print_info "sudo systemctl start $SERVICE_NAME"
+                return
+            fi
             sleep 3
             if systemctl is-active --quiet "$SERVICE_NAME"; then
                 print_pass "Service started successfully"
