@@ -1,0 +1,45 @@
+[Unit]
+Description=Gmail Bot Telegram Service
+After=network.target
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=botuser
+Group=botuser
+WorkingDirectory=/home/botuser/gmail-bot
+Environment=PATH=/home/botuser/gmail-bot/venv/bin
+ExecStart=/home/botuser/gmail-bot/venv/bin/python /home/botuser/gmail-bot/main.py
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+# Restart settings - auto restart on failure
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Resource limits
+MemoryLimit=512M
+CPUQuota=50%
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/botuser/gmail-bot
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gmail-bot
+
+[Install]
+WantedBy=multi-user.target
